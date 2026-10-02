@@ -187,6 +187,12 @@ mark{background:var(--mark);color:inherit;border-radius:3px;padding:0 1px}
 .err{color:#B3261E;font-size:14px;margin-top:8px;min-height:20px}
 .gate{min-height:70vh;display:flex;align-items:center;justify-content:center;padding:24px 16px}
 .foot{border-top:1px solid var(--line);color:var(--muted);font-size:13px;padding:18px 0 28px;text-align:center}
+.ofn{color:var(--accent);font-weight:600}
+.locs{display:flex;flex-wrap:wrap;gap:6px}
+.loc{border:1px solid var(--line);border-radius:999px;padding:3px 11px;font-size:13.5px;background:var(--surface)}
+.loc.hq{background:var(--accent-soft);border-color:transparent;font-weight:600}
+.loc.hq b{font-family:var(--mono);font-size:10.5px;font-weight:500;letter-spacing:.08em;color:var(--accent);margin-right:7px}
+.locnote{font-size:13px;color:var(--muted);margin-top:8px!important}
 </style>
 </head>
 <body>
@@ -200,7 +206,7 @@ mark{background:var(--mark);color:inherit;border-radius:3px;padding:0 1px}
   <label class="sel"><select id="jump" aria-label="Jump to a VC firm"></select></label>
   <button class="fbbtn" type="button" data-fb>Feedback &amp; requests</button>
 </div></nav>
-<div class="betabar"><div class="wrap"><span><b>This is a beta tool.</b> Company write-ups, hiring sources and some stages are estimates, so check anything important before you rely on it.</span><button class="linkbtn" type="button" data-fb>Request a feature or report a problem</button></div></div>
+<div class="betabar"><div class="wrap"><span><b>This is a beta tool.</b> Company write-ups, hiring sources, other offices and some stages are estimates, so check anything important before you rely on it.</span><button class="linkbtn" type="button" data-fb>Request a feature or report a problem</button></div></div>
 
 <div id="app"><div class="wrap loading">Loading portfolios…</div></div>
 
@@ -241,10 +247,10 @@ const IC = {
   copy:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>',
   li:'<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM3 9h4v12H3zM9 9h3.8v1.7h.1c.5-1 1.8-2 3.8-2 4 0 4.8 2.6 4.8 6V21h-4v-5.5c0-1.3 0-3-1.8-3s-2.1 1.4-2.1 2.9V21H9z"/></svg>'
 };
-let DATA = [], FIRMS = [], FBY = {}, BUILT = '';
+let DATA = [], FIRMS = [], FBY = {}, BUILT = '', METROS = {};
 const STG_ORDER = ['Seed','Series A','Series B','Series C','Series D+','Public','Acquired','Shut down','Unknown'];
 const STG_LABEL = {'Seed':'Seed / pre-seed','Series D+':'Series D or later','Unknown':'Other or undisclosed round'};
-const blank = () => ({ q:'', stg:'', ind:'', bm:'', reg:'', st:'', emp:'', pool:'', sort:'rel', full:false, sel:null, shown:40 });
+const blank = () => ({ q:'', stg:'', ind:'', bm:'', reg:'', st:'', emp:'', pool:'', loc:'', off:true, sort:'rel', full:false, sel:null, shown:40 });
 let state = blank();
 let view = '';            // '' home | 'all' | firm slug
 let vcSel = new Set();    // selected firms in All view
@@ -266,10 +272,12 @@ function go(v){
 function boot(d){
   FIRMS = d.firms.slice().sort((a,b) => a.n.localeCompare(b.n)); BUILT = d.built;
   FIRMS.forEach(f => FBY[f.s] = f);
-  DATA = d.rows;
+  DATA = d.rows; METROS = d.metros || {};
+  const tagsOf = l => { const p = l.split(', '), last = p[p.length-1], us = /^[A-Z]{2}$/.test(last) && p.length > 1;
+    return us ? ['m:' + (METROS[l] || l), 's:' + last, 'c:United States'] : p.length > 1 ? ['m:' + p[0], 'c:' + last] : ['c:' + last]; };
   DATA.forEach((r, i) => {
-    r.i = i; r.ts = r.ts || []; r.sub = r.sub || ''; r.eli5 = r.eli5 || ''; r.hq = r.hq || ''; r.emp = r.emp || ''; r.bm = r.bm || '';
-    r.stg = r.stg || 'Unknown'; r.d = r.d || ''; r.hay = [r.n, r.d, r.stg, r.ind, r.sub, r.bm, r.eli5, r.ts.join(' '), r.why, r.fn, r.note, r.hq, r.reg, r.cs, r.st, r.f.map(s => FBY[s].n + ' ' + FBY[s].sh).join(' ')].join(' \u0001 ').toLowerCase();
+    r.i = i; r.ts = r.ts || []; r.of = r.of || []; r.lt = r.hq ? tagsOf(r.hq) : []; r.lta = [...new Set(r.lt.concat(...r.of.map(tagsOf), r.rm ? ['x:remote'] : []))]; if (r.rm) r.lt = r.lt.concat('x:remote'); r.sub = r.sub || ''; r.eli5 = r.eli5 || ''; r.hq = r.hq || ''; r.emp = r.emp || ''; r.bm = r.bm || '';
+    r.stg = r.stg || 'Unknown'; r.d = r.d || ''; r.hay = [r.n, r.d, r.stg, r.ind, r.sub, r.bm, r.eli5, r.ts.join(' '), r.why, r.fn, r.note, r.hq, r.of.join(' '), r.lta.filter(t => t[0] === 'm').map(t => t.slice(2)).join(' '), r.rm ? 'remote-first' : '', r.reg, r.cs, r.st, r.f.map(s => FBY[s].n + ' ' + FBY[s].sh).join(' ')].join(' \u0001 ').toLowerCase();
     r.nl = r.n.toLowerCase(); r.size = SIZE_ORDER.indexOf(r.emp);
   });
   $('#jump').innerHTML = '<option value="">Jump to a firm…</option>' + FIRMS.map(f => `<option value="${f.s}">${esc(f.n)} (${f.ct})</option>`).join('');
@@ -305,7 +313,7 @@ function renderHome(){
         <span class="lab"><span class="badge c-Complete">Site + Crunchbase</span></span>
       </button>`).join('')}
     </div>
-    <p class="foot">Each firm's list combines its own portfolio page with Crunchbase's record of its investments, exported on ${esc(BUILT)}. Funding stage, team size, headquarters, status and LinkedIn links come from Crunchbase. The plain-words descriptions, hiring sources and roles are researched estimates, not a LinkedIn export.</p>
+    <p class="foot">Each firm's list combines its own portfolio page with Crunchbase's record of its investments, exported on ${esc(BUILT)}. Funding stage, team size, headquarters, status and LinkedIn links come from Crunchbase. The plain-words descriptions, hiring sources, roles and other office locations are researched estimates, not a LinkedIn export.</p>
   </div>`;
   $('#homeform').addEventListener('submit', e => { e.preventDefault(); state = blank(); state.q = $('#homeq').value.trim(); vcSel = new Set(); go('all', true); });
 }
@@ -323,7 +331,7 @@ function filtered(){
   let r = scope.filter(d =>
     (!state.stg || d.stg === state.stg) && (!state.ind || d.ind === state.ind) && (!state.bm || d.bm === state.bm) && (!state.reg || d.reg === state.reg) &&
     (!state.st || d.st === state.st) && (!state.emp || d.sg === state.emp) &&
-    (!state.pool || d.ts.includes(state.pool)) && (!state.full || !d.thin) && t.every(w => d.hay.includes(w)));
+    (!state.loc || (state.off ? d.lta : d.lt).includes(state.loc)) && (!state.pool || d.ts.includes(state.pool)) && (!state.full || !d.thin) && t.every(w => d.hay.includes(w)));
   const score = d => { let s = 0; t.forEach(w => { if (d.nl === w) s += 200; else if (d.nl.startsWith(w)) s += 100; else if (d.nl.includes(w)) s += 40; if (d.ts.some(x => x.toLowerCase().includes(w))) s += 8; if (d.ind.toLowerCase().includes(w) || d.sub.toLowerCase().includes(w)) s += 6; }); return s - (d.thin ? 3 : 0); };
   const az = (a,b) => a.nl.localeCompare(b.nl);
   if (state.sort === 'az' || (state.sort === 'rel' && !t.length)) r.sort(az);
@@ -336,6 +344,17 @@ function hl(s){
   s = esc(s); const t = terms().filter(w => w.length > 1); if (!t.length) return s;
   const re = new RegExp('(' + t.map(w => esc(w).replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|') + ')', 'gi');
   return s.replace(re, '<mark>$1</mark>');
+}
+function locOpts(){
+  const c = {}; scope.forEach(d => (state.off ? d.lta : d.lt).forEach(t => c[t] = (c[t]||0) + 1));
+  const grp = (pre, min, f) => Object.entries(c).filter(([t,n]) => t[0] === pre && n >= min && (!f || f(t))).sort((a,b) => b[1]-a[1]);
+  const isUS = t => /, [A-Z]{2}$/.test(t) || Object.values(METROS).includes(t.slice(2));
+  const o = (list, lab) => list.map(([t,n]) => `<option value="${esc(t)}"${t===state.loc?' selected':''}>${esc(lab ? lab(t) : t.slice(2))} (${n.toLocaleString()})</option>`).join('');
+  const g = (label, html) => html ? `<optgroup label="${label}">${html}</optgroup>` : '';
+  if (state.loc && !c[state.loc]) state.loc = '';
+  return '<option value="">Any location</option>' + (c['x:remote'] ? `<option value="x:remote"${state.loc==='x:remote'?' selected':''}>Remote-first (${c['x:remote']})</option>` : '') +
+    g('US metro areas', o(grp('m', 8, isUS).slice(0, 40))) + g('Cities outside the US', o(grp('m', 8, t => !isUS(t)).slice(0, 50))) +
+    g('US states', o(grp('s', 3).sort((a,b) => a[0].localeCompare(b[0])))) + g('Countries', o(grp('c', 3)));
 }
 function counts(key){ const c = {}; scope.forEach(d => { const v = d[key]; if (v) c[v] = (c[v]||0) + 1; }); return Object.entries(c).sort((a,b) => b[1]-a[1]); }
 function opts(all, list, cur){ return `<option value="">${all}</option>` + list.map(([v,n,label]) => `<option value="${esc(v)}"${v===cur?' selected':''}>${esc(label||v)} (${n})</option>`).join(''); }
@@ -364,16 +383,18 @@ function renderFinder(){
   $('#app').innerHTML = `
   <div class="bar" id="bar"><div class="wrap">
     <div class="fhead">${head}</div>
-    <div class="search">${IC.search}<input id="q" type="search" autocomplete="off" value="${esc(state.q)}" placeholder="Search a company, skill, role, city, or former employer (try &quot;ex-Google fintech&quot;)" aria-label="Search companies"></div>
+    <div class="search">${IC.search}<input id="q" type="search" autocomplete="off" value="${esc(state.q)}" placeholder="Search a company, skill, role, city, office location, or former employer (try &quot;ex-Google fintech&quot;)" aria-label="Search companies"></div>
     ${vcPanel}
     <div class="filters">
       <label class="sel"><select id="f-stg" aria-label="Funding stage">${opts('Any stage',STG_ORDER.map(v => [v, scope.filter(d=>d.stg===v).length, STG_LABEL[v]||v]).filter(x=>x[1]),state.stg)}</select></label>
       <label class="sel"><select id="f-ind" aria-label="Industry">${opts('All industries',counts('ind'),state.ind)}</select></label>
       <label class="sel"><select id="f-bm" aria-label="B2B or B2C">${opts('B2B and B2C',counts('bm').map(([v,n]) => [v,n,BM_LABEL[v]||v]),state.bm)}</select></label>
+      <label class="sel"><select id="f-loc" aria-label="Location">${locOpts()}</select></label>
       <label class="sel"><select id="f-reg" aria-label="Region">${opts('All regions',counts('reg'),state.reg)}</select></label>
             <label class="sel"><select id="f-emp" aria-label="Team size">${opts('Any team size',SIZE_GROUPS.map(k => [k, scope.filter(d=>d.sg===k).length]),state.emp)}</select></label>
       <label class="sel"><select id="f-sort" aria-label="Sort">
         <option value="rel">Sort: best match</option><option value="az">Sort: A–Z</option><option value="vcs">Sort: backed by most firms</option><option value="big">Sort: largest team</option></select></label>
+      <label class="check" title="When on, the Location filter also matches a company's other offices, not only its headquarters"><input type="checkbox" id="f-off" ${state.off?'checked':''}> Location includes other offices</label>
       <label class="check" title="Hide companies we could not find enough public information on"><input type="checkbox" id="f-full" ${state.full?'checked':''}> Detailed profiles only</label>
       <button class="ghost" id="reset" type="button">Clear all</button>
     </div>
@@ -389,18 +410,19 @@ function renderFinder(){
     <main class="grid"><div class="list" id="list"></div><aside class="detail closed" id="detail" aria-live="polite"></aside></main>
   </div>`;
   $('#f-sort').value = state.sort;
-  ['stg','ind','bm','reg','emp'].forEach(k => $('#f-'+k).classList.toggle('on', !!state[k]));
+  ['stg','ind','bm','loc','reg','emp'].forEach(k => $('#f-'+k).classList.toggle('on', !!state[k]));
   let tmr;
   $('#q').addEventListener('input', e => { clearTimeout(tmr); tmr = setTimeout(() => { state.q = e.target.value.trim(); state.shown = 40; state.sel = null; renderList(); }, 130); });
-  ['stg','ind','bm','reg','emp'].forEach(k => $('#f-'+k).addEventListener('change', e => { state[k] = e.target.value; e.target.classList.toggle('on', !!state[k]); state.shown = 40; state.sel = null; renderList(); }));
+  ['stg','ind','bm','loc','reg','emp'].forEach(k => $('#f-'+k).addEventListener('change', e => { state[k] = e.target.value; e.target.classList.toggle('on', !!state[k]); state.shown = 40; state.sel = null; renderList(); }));
   $('#f-sort').addEventListener('change', e => { state.sort = e.target.value; renderList(); });
+  $('#f-off').addEventListener('change', e => { state.off = e.target.checked; state.shown = 40; state.sel = null; $('#f-loc').innerHTML = locOpts(); $('#f-loc').classList.toggle('on', !!state.loc); renderList(); });
   $('#f-full').addEventListener('change', e => { state.full = e.target.checked; state.shown = 40; state.sel = null; renderList(); });
   const vp = $('#vcpanel'); if (vp) vp.addEventListener('toggle', () => { window.__vcOpen = vp.open; setBarH(); });
   setBarH(); renderList();
 }
 function renderList(){
   current = filtered();
-  const anyFilter = state.q || state.stg || state.ind || state.bm || state.reg || state.st || state.emp || state.pool || state.full;
+  const anyFilter = state.q || state.stg || state.ind || state.bm || state.reg || state.loc || state.st || state.emp || state.pool || state.full;
   const thin = scope.filter(d => d.thin).length;
   $('#count').innerHTML = (anyFilter ? `<b>${current.length.toLocaleString()}</b> of ${scope.length.toLocaleString()} companies match` : `Showing all <b>${scope.length.toLocaleString()}</b> companies`) + (thin && !state.full ? ` · ${thin.toLocaleString()} have limited info` : '');
   const vs = $('#vcsum'); if (vs) vs.textContent = vcSel.size ? `${vcSel.size} selected · ${scope.length.toLocaleString()} companies` : `All ${FIRMS.length} firms`;
@@ -415,7 +437,7 @@ function renderList(){
     <button type="button" class="row${state.sel===d.i?' sel-on':''}" data-i="${d.i}">
       <span class="nm">${hl(d.n)}</span>
       <span class="right">${d.bm ? `<span class="tag">${esc(d.bm)}</span>` : ''}<span class="pill ${stgClass(d.stg)}">${d.stg === 'Unknown' ? 'Other round' : esc(d.stg)}</span></span>
-      <span class="line2"><span>${hl(d.ind)}${d.sub ? ' · ' + hl(d.sub) : ''}</span>${d.hq ? `<span>${hl(d.hq)}</span>` : ''}${d.emp ? `<span>${esc(d.emp)} people</span>` : ''}</span>
+      <span class="line2"><span>${hl(d.ind)}${d.sub ? ' · ' + hl(d.sub) : ''}</span>${d.hq ? `<span>${hl(d.hq)}${d.of.length ? ` <span class="ofn">+${d.of.length} office${d.of.length>1?'s':''}</span>` : ''}</span>` : ''}${d.rm ? '<span>Remote-first</span>' : ''}${d.emp ? `<span>${esc(d.emp)} people</span>` : ''}</span>
       <span class="eli${d.eli5 || d.d ? '' : ' none'}">${d.eli5 ? hl(d.eli5) : d.d ? hl(d.d) : 'Not enough public information to describe this company yet.'}</span>
       ${showInv || d.f.length > 1 ? `<span class="inv">${d.f.map(s => `<span class="vc">${esc(FBY[s].sh)}</span>`).join('')}</span>` : ''}
     </button>`).join('') +
@@ -447,6 +469,9 @@ function showDetail(i, openSheet = true){
         <p>${esc(d.why || '')}</p></div>` : ''}
       ${d.fn ? `<div class="sec"><h4>Roles they hire most</h4><p>${esc(d.fn)}</p></div>` : ''}
       ${d.note && !d.thin ? `<div class="sec"><h4>Recruiter notes</h4><p>${esc(d.note)}</p></div>` : ''}
+      <div class="sec"><h4>Locations</h4>
+        <div class="locs"><span class="loc hq"><b>HQ</b>${esc(d.hq || 'Not known')}</span>${d.of.map(o => `<span class="loc">${esc(o)}</span>`).join('')}${d.rm ? '<span class="loc">Remote-first</span>' : ''}</div>
+        <p class="locnote">${d.of.length ? 'Other offices are researched estimates and may be out of date. Confirm on the company\'s careers page.' : 'No other offices on record. Smaller companies usually have one location; for larger ones this may just mean we have no data yet.'}</p></div>
       <dl class="facts">
         <div><dt>Current stage</dt><dd><span class="pill ${stgClass(d.stg)}">${d.stg === 'Unknown' ? 'Other round' : esc(d.stg)}</span>${d.se ? ' <span style="font-weight:400;color:var(--muted)">estimated</span>' : ''}</dd></div>
         ${d.lr ? `<div><dt>Last round</dt><dd>${esc(d.lr)}</dd></div>` : ''}
@@ -494,9 +519,9 @@ document.addEventListener('click', e => {
   if (e.target.closest('#reset') || e.target.closest('#reset2')) { state = blank(); renderFinder(); return; }
   const cp = e.target.closest('[data-copy]'); if (cp) { copyText(cp.dataset.copy, 'LinkedIn URL copied'); return; }
   if (e.target.closest('#copy')) {
-    const head = ['Company','Backed by','Stage','Industry','B2B/B2C','HQ','Team size','Status','Hires from','Key roles','LinkedIn','Website','What they do'];
+    const head = ['Company','Backed by','Stage','Industry','B2B/B2C','HQ','Other offices','Team size','Status','Hires from','Key roles','LinkedIn','Website','What they do'];
     const clean = s => String(s ?? '').replace(/[\t\n]/g,' ');
-    const rows = current.map(d => [d.n,d.f.map(s=>FBY[s].sh).join(', '),d.stg + (d.se ? ' (est.)' : ''),d.ind,d.bm,d.hq,d.emp,d.cs,d.ts.join(', '),d.fn,d.li,d.web,d.eli5].map(clean).join('\t'));
+    const rows = current.map(d => [d.n,d.f.map(s=>FBY[s].sh).join(', '),d.stg + (d.se ? ' (est.)' : ''),d.ind,d.bm,d.hq,d.of.join('; '),d.emp,d.cs,d.ts.join(', '),d.fn,d.li,d.web,d.eli5].map(clean).join('\t'));
     copyText([head.join('\t'), ...rows].join('\n'), `Copied ${current.length.toLocaleString()} companies. Paste into Google Sheets or Excel.`);
   }
 });
