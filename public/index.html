@@ -1,0 +1,575 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="description" content="Beta research tool for recruiters: search the portfolios of 24 venture capital firms.">
+<title>VC Portfolio Finder (Beta)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Hanken+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: slim top nav (Home / All portfolios / firm switcher). Home = firm directory. Finder = sticky search + filters, results left, company detail right (full-screen sheet on phones). */
+:root{
+  --bg:#F3F5F2; --surface:#FFFFFF; --surface-2:#EEF1ED; --ink:#16201C; --muted:#5B6862; --line:#DCE2DD;
+  --accent:#0B6E4F; --accent-ink:#FFFFFF; --accent-soft:#DDEFE7; --mark:#FFE9A8;
+  --pub:#1F5FB8; --pub-soft:#E1EBF8; --acq:#9A5B00; --acq-soft:#FBEBD2; --dead:#9B3B3B; --dead-soft:#F6E1E1; --priv-soft:#E6F2EC;
+  --display:"Bricolage Grotesque","Hanken Grotesk",system-ui,sans-serif;
+  --body:"Hanken Grotesk",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,monospace;
+  --shadow:0 1px 2px rgba(20,32,28,.06),0 8px 24px rgba(20,32,28,.06);
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0F1513; --surface:#171F1C; --surface-2:#1F2925; --ink:#E6ECE8; --muted:#9AA8A1; --line:#2B3632;
+  --accent:#4CC79B; --accent-ink:#0B1411; --accent-soft:#18372C; --mark:#5A4A12;
+  --pub:#8DB6F0; --pub-soft:#1B2B42; --acq:#E9B35E; --acq-soft:#3A2C14; --dead:#E79A9A; --dead-soft:#3B1E1E; --priv-soft:#18302A;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.3); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0F1513; --surface:#171F1C; --surface-2:#1F2925; --ink:#E6ECE8; --muted:#9AA8A1; --line:#2B3632;
+  --accent:#4CC79B; --accent-ink:#0B1411; --accent-soft:#18372C; --mark:#5A4A12;
+  --pub:#8DB6F0; --pub-soft:#1B2B42; --acq:#E9B35E; --acq-soft:#3A2C14; --dead:#E79A9A; --dead-soft:#3B1E1E; --priv-soft:#18302A;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.3); color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5}
+button,input,select{font:inherit;color:inherit}
+a{color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.wrap{max-width:1320px;margin:0 auto;padding-inline:20px}
+/* nav */
+.nav{border-bottom:1px solid var(--line);background:var(--surface)}
+.nav .wrap{display:flex;align-items:center;gap:6px 14px;flex-wrap:wrap;padding-block:10px}
+.logo{font-family:var(--display);font-weight:700;font-size:18px;letter-spacing:-.01em;background:none;border:0;cursor:pointer;padding:4px 0;margin-right:6px}
+.logo span{color:var(--accent)}
+.navbtn{border:1px solid transparent;background:none;border-radius:9px;height:36px;padding:0 12px;cursor:pointer;font-weight:600;font-size:14px;color:var(--muted)}
+.navbtn:hover{background:var(--surface-2);color:var(--ink)}
+.navbtn.on{background:var(--accent-soft);color:var(--accent)}
+.spacer{flex:1}
+.sel{position:relative;display:inline-block}
+.sel select{appearance:none;height:36px;border:1px solid var(--line);background:var(--surface);border-radius:9px;padding:0 30px 0 12px;font-size:14px;cursor:pointer;max-width:240px}
+.sel select.on{border-color:var(--accent);background:var(--accent-soft);font-weight:600}
+.sel::after{content:"";position:absolute;right:12px;top:50%;width:6px;height:6px;border-right:1.5px solid var(--muted);border-bottom:1.5px solid var(--muted);transform:translateY(-70%) rotate(45deg);pointer-events:none}
+/* home */
+.hero{padding-block:34px 22px}
+h1{font-family:var(--display);font-weight:700;font-size:clamp(28px,4.4vw,44px);line-height:1.08;letter-spacing:-.02em;margin:0 0 10px;text-wrap:balance;max-width:20ch}
+.lede{color:var(--muted);font-size:17px;max-width:62ch;margin:0 0 20px}
+.bigsearch{display:flex;gap:10px;max-width:760px}
+.search{flex:1;min-width:0;position:relative}
+.search svg{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--muted)}
+.search input{width:100%;height:50px;border:1.5px solid var(--line);background:var(--surface);border-radius:12px;padding:0 14px 0 42px;font-size:16px}
+.search input:focus{border-color:var(--accent);outline:none;box-shadow:0 0 0 3px var(--accent-soft)}
+.btn{height:36px;border:1px solid var(--line);background:var(--surface);border-radius:9px;padding:0 12px;font-size:13.5px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;text-decoration:none;color:var(--ink);white-space:nowrap}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.btn.big{height:50px;padding:0 20px;font-size:15px;border-radius:12px}
+.tries{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:12px;color:var(--muted);font-size:13.5px}
+.h2{font-family:var(--display);font-size:20px;margin:26px 0 4px}
+.h2sub{color:var(--muted);margin:0 0 14px;font-size:14px}
+.firms{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px;padding-bottom:16px}
+.firm{display:flex;flex-direction:column;gap:8px;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px;cursor:pointer;min-width:0}
+.firm:hover{border-color:var(--accent);box-shadow:var(--shadow)}
+.firm.all{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.firm .top{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.firm .fn{font-weight:700;font-size:16px;line-height:1.25}
+.firm .ct{font-family:var(--mono);font-size:22px;font-weight:500;font-variant-numeric:tabular-nums}
+.firm .lab{font-size:12.5px;color:var(--muted)}
+.firm.all .lab{color:inherit;opacity:.85}
+.badge{font-size:11.5px;font-weight:600;border-radius:999px;padding:2px 8px;white-space:nowrap}
+.c-Complete,.c-Near{background:var(--priv-soft);color:var(--accent)}
+.c-Partial{background:var(--acq-soft);color:var(--acq)}
+.foot{color:var(--muted);font-size:13px;border-top:1px solid var(--line);padding-block:16px 40px;max-width:80ch}
+/* finder */
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-block:12px;border-bottom:1px solid var(--line)}
+.fhead{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px;margin-bottom:10px}
+.fhead h2{font-family:var(--display);font-weight:700;font-size:clamp(20px,2.6vw,26px);margin:0;letter-spacing:-.01em}
+.fhead .sub{color:var(--muted);font-size:13.5px}
+.fhead a{color:var(--accent)}
+.bar.tall{position:static}
+.filters{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;align-items:center}
+.ghost{height:36px;border:1px solid transparent;background:none;border-radius:9px;padding:0 10px;color:var(--muted);cursor:pointer;font-size:14px}
+.ghost:hover{color:var(--ink);background:var(--surface-2)}
+.check{display:inline-flex;align-items:center;gap:6px;font-size:14px;color:var(--muted);cursor:pointer;padding:0 4px}
+.pools,.vcs{display:flex;gap:6px;align-items:center;margin-top:10px}
+.pools{overflow-x:auto;scrollbar-width:thin;padding-bottom:2px}
+.vcs{flex-wrap:wrap}
+.lbl{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);white-space:nowrap;margin-right:4px;font-weight:700}
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:4px 11px;font-size:13px;white-space:nowrap;cursor:pointer}
+.chip:hover{border-color:var(--accent)}
+.chip.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.chip .n{font-family:var(--mono);font-size:11px;color:var(--muted);margin-left:5px}
+.chip.on .n{color:inherit;opacity:.8}
+.vcpanel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-top:10px}
+.vcpanel summary{cursor:pointer;font-weight:600;font-size:14px;list-style:none;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.vcpanel summary::-webkit-details-marker{display:none}
+.vcpanel summary::before{content:"";width:7px;height:7px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(-45deg);transition:transform .15s}
+.vcpanel[open] summary::before{transform:rotate(45deg)}
+.vcpanel .sum{color:var(--muted);font-weight:400}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.seg button{border:0;background:var(--surface);padding:5px 10px;font-size:13px;cursor:pointer;color:var(--muted)}
+.seg button.on{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.meta{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px;padding-block:14px 8px}
+.count{font-size:14px;color:var(--muted)}
+.count b{color:var(--ink);font-family:var(--mono);font-weight:500}
+main.grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:18px;padding-bottom:40px;align-items:start}
+.list{display:flex;flex-direction:column;gap:6px;min-width:0}
+.row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;cursor:pointer;text-align:left;width:100%}
+.row:hover{border-color:var(--muted)}
+.row.sel-on{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
+.row .nm{font-weight:700;font-size:15.5px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .right{display:flex;gap:6px;align-items:center}
+.row .line2{grid-column:1/-1;color:var(--muted);font-size:13.5px;display:flex;flex-wrap:wrap;gap:2px 10px}
+.row .eli{grid-column:1/-1;font-size:14px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.row .eli.none{color:var(--muted);font-style:italic}
+.row .inv{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:4px;margin-top:2px}
+.tag{font-family:var(--mono);font-size:11px;letter-spacing:.02em;border-radius:6px;padding:2px 7px;white-space:nowrap;border:1px solid var(--line);color:var(--muted)}
+.vc{font-size:11.5px;border-radius:6px;padding:1px 7px;background:var(--surface-2);color:var(--muted);white-space:nowrap}
+.pill{font-size:12px;font-weight:600;border-radius:999px;padding:2px 9px;white-space:nowrap}
+.st-Private{background:var(--priv-soft);color:var(--accent)}
+.st-Public{background:var(--pub-soft);color:var(--pub)}
+.st-Acquired{background:var(--acq-soft);color:var(--acq)}
+.st-Shut{background:var(--dead-soft);color:var(--dead)}
+.st-Unknown{background:var(--surface-2);color:var(--muted)}
+mark{background:var(--mark);color:inherit;border-radius:3px;padding:0 1px}
+.more{margin-top:6px;align-self:flex-start}
+.empty{background:var(--surface);border:1px dashed var(--line);border-radius:12px;padding:28px;text-align:center;color:var(--muted)}
+.detail{position:sticky;top:calc(env(safe-area-inset-top,0px) + var(--barh,220px));max-height:calc(100vh - var(--barh,220px) - 16px);overflow:auto;background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);min-width:0}
+.dhead{padding:22px 24px 16px;border-bottom:1px solid var(--line)}
+.dhead h3{font-family:var(--display);font-size:28px;line-height:1.15;margin:0 0 6px;text-wrap:balance}
+.dsub{color:var(--muted);font-size:14px;display:flex;flex-wrap:wrap;gap:4px 12px}
+.dact{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.eli5{margin:0;padding:18px 24px;background:var(--accent-soft);font-size:17px;line-height:1.5}
+.eli5 .k{display:block;font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);font-weight:700;margin-bottom:4px}
+.thinbox{margin:0;padding:16px 24px;background:var(--surface-2);color:var(--muted)}
+.dbody{padding:18px 24px 24px;display:flex;flex-direction:column;gap:18px}
+.sec h4{font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 6px;font-weight:700}
+.sec p{margin:0;max-width:65ch}
+.srcs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.facts{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px 16px;padding:14px 16px;background:var(--surface-2);border-radius:12px;margin:0}
+.facts dt{font-size:11.5px;color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
+.facts dd{margin:2px 0 0;font-weight:600;font-variant-numeric:tabular-nums}
+.warn{font-size:13px;color:var(--muted);border-top:1px solid var(--line);padding-top:12px;margin:0}
+.close{display:none}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:10px;font-size:14px;z-index:30;max-width:90vw}
+.loading{padding:60px 0;text-align:center;color:var(--muted)}
+@media (max-width:900px){
+  main.grid{grid-template-columns:minmax(0,1fr)}
+  .bar{position:static}
+  .detail{position:fixed;inset:0;top:0;max-height:none;border-radius:0;z-index:20;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+  .detail.closed{display:none}
+  .close{display:inline-flex}
+  .bigsearch{flex-direction:column}
+  .spacer{display:none}
+}
+@media (prefers-reduced-motion:no-preference){.row,.firm{transition:border-color .12s,box-shadow .12s}}
+
+.beta{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;font-weight:500;background:var(--mark);color:var(--ink);border-radius:6px;padding:2px 7px;margin-left:8px;vertical-align:middle}
+.betabar{background:var(--surface-2);border-bottom:1px solid var(--line);font-size:13.5px;color:var(--muted)}
+.betabar .wrap{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;padding-block:8px}
+.betabar b{color:var(--ink)}
+.linkbtn{border:0;background:none;padding:0;color:var(--accent);font-weight:600;cursor:pointer;font-size:inherit;text-decoration:underline;text-underline-offset:2px}
+.fbbtn{border:1px solid var(--accent);background:var(--accent);color:var(--accent-ink);border-radius:9px;height:36px;padding:0 14px;font-weight:600;font-size:14px;cursor:pointer;white-space:nowrap}
+.fbbtn:hover{filter:brightness(1.08)}
+.modal{position:fixed;inset:0;z-index:40;background:rgba(10,16,14,.55);display:flex;align-items:center;justify-content:center;padding:16px}
+.modal[hidden]{display:none}
+.mcard{background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);width:min(520px,100%);max-height:calc(100vh - 32px);overflow:auto;padding:24px}
+.mcard h2{font-family:var(--display);font-size:24px;margin:0 0 4px}
+.mcard p{margin:0 0 14px;color:var(--muted)}
+.mcard label{display:block;font-size:13px;font-weight:600;margin:12px 0 4px}
+.mcard input[type=text],.mcard input[type=password],.mcard textarea{width:100%;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);border-radius:10px;padding:10px 12px;font:inherit;font-size:16px}
+.mcard textarea{min-height:130px;resize:vertical}
+.mcard input:focus,.mcard textarea:focus{border-color:var(--accent);outline:none;box-shadow:0 0 0 3px var(--accent-soft)}
+.kinds{display:flex;flex-wrap:wrap;gap:6px}
+.kinds label{margin:0;font-weight:500;border:1px solid var(--line);border-radius:999px;padding:5px 12px;cursor:pointer;font-size:14px}
+.kinds input{position:absolute;opacity:0;pointer-events:none}
+.kinds label:has(input:checked){background:var(--accent-soft);border-color:var(--accent);color:var(--accent);font-weight:600}
+.kinds label:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:2px}
+.mact{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;margin-top:18px}
+.mact .ghost{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:9px;height:36px;padding:0 14px;font-weight:600;font-size:14px;cursor:pointer}
+.err{color:#B3261E;font-size:14px;margin-top:8px;min-height:20px}
+.gate{min-height:70vh;display:flex;align-items:center;justify-content:center;padding:24px 16px}
+.foot{border-top:1px solid var(--line);color:var(--muted);font-size:13px;padding:18px 0 28px;text-align:center}
+</style>
+</head>
+<body>
+
+
+<nav class="nav"><div class="wrap">
+  <button class="logo" type="button" data-go="">VC Portfolio <span>Finder</span><span class="beta">BETA</span></button>
+  <button class="navbtn" type="button" data-go="" id="nav-home">All firms</button>
+  <button class="navbtn" type="button" data-go="all" id="nav-all">Search every portfolio</button>
+  <span class="spacer"></span>
+  <label class="sel"><select id="jump" aria-label="Jump to a VC firm"></select></label>
+  <button class="fbbtn" type="button" data-fb>Feedback &amp; requests</button>
+</div></nav>
+<div class="betabar"><div class="wrap"><span><b>This is a beta tool.</b> Company write-ups, hiring sources and some stages are estimates, so check anything important before you rely on it.</span><button class="linkbtn" type="button" data-fb>Request a feature or report a problem</button></div></div>
+
+<div id="app"><div class="wrap loading">Loading portfolios…</div></div>
+
+<footer class="foot"><div class="wrap">VC Portfolio Finder · Beta · Internal research tool for the Nxt Level team · <button class="linkbtn" type="button" data-fb>Send feedback</button></div></footer>
+
+<div class="modal" id="fb" hidden role="dialog" aria-modal="true" aria-labelledby="fb-h"><form class="mcard" id="fb-form">
+  <h2 id="fb-h">Feedback &amp; feature requests</h2>
+  <p>This tool is in beta. Tell us what would make it more useful, or what looks wrong.</p>
+  <div class="kinds" role="radiogroup" aria-label="Type of feedback">
+    <label><input type="radio" name="kind" value="Feature request" checked>Feature request</label>
+    <label><input type="radio" name="kind" value="Wrong or missing data">Wrong or missing data</label>
+    <label><input type="radio" name="kind" value="Bug">Something is broken</label>
+    <label><input type="radio" name="kind" value="General feedback">General feedback</label>
+  </div>
+  <label for="fb-name">Your name</label>
+  <input type="text" id="fb-name" autocomplete="name">
+  <label for="fb-msg">What should we know?</label>
+  <textarea id="fb-msg" required placeholder="For example: let me filter by funding amount, or Acme's stage is out of date."></textarea>
+  <div class="err" id="fb-note" style="color:var(--muted)"></div>
+  <div class="mact">
+    <button type="button" class="ghost" id="fb-cancel">Cancel</button>
+    <button type="button" class="ghost" id="fb-copy">Copy message</button>
+    <button type="submit" class="fbbtn" id="fb-send">Open in email</button>
+  </div>
+</form></div>
+<textarea id="clip" aria-hidden="true" tabindex="-1" style="position:fixed;left:-9999px;top:0;width:1px;height:1px"></textarea>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const SIZE_ORDER = ['1-10','11-50','51-100','51-200','101-250','201-500','251-500','501-1,000','1,001-5,000','5,001-10,000','10,000+'];
+const SIZE_GROUPS = ['Under 50','51–250','251–1,000','1,000+'];
+const stgClass = s => s === 'Shut down' ? 'st-Shut' : s === 'Public' ? 'st-Public' : s === 'Acquired' ? 'st-Acquired' : s === 'Unknown' ? 'st-Unknown' : 'st-Private';
+const stClass = s => s === 'Shut down' ? 'st-Shut' : 'st-' + s;
+const BM_LABEL = {B2B:'B2B · sells to businesses',B2C:'B2C · sells to consumers',B2B2C:'B2B2C · both'};
+const IC = {
+  search:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>',
+  copy:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>',
+  li:'<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM3 9h4v12H3zM9 9h3.8v1.7h.1c.5-1 1.8-2 3.8-2 4 0 4.8 2.6 4.8 6V21h-4v-5.5c0-1.3 0-3-1.8-3s-2.1 1.4-2.1 2.9V21H9z"/></svg>'
+};
+let DATA = [], FIRMS = [], FBY = {}, BUILT = '';
+const STG_ORDER = ['Seed','Series A','Series B','Series C','Series D+','Public','Acquired','Shut down','Unknown'];
+const STG_LABEL = {'Seed':'Seed / pre-seed','Series D+':'Series D or later','Unknown':'Other or undisclosed round'};
+const blank = () => ({ q:'', stg:'', ind:'', bm:'', reg:'', st:'', emp:'', pool:'', sort:'rel', full:false, sel:null, shown:40 });
+let state = blank();
+let view = '';            // '' home | 'all' | firm slug
+let vcSel = new Set();    // selected firms in All view
+let vcMode = 'any';       // any | every
+let scope = [];           // rows in current view before filters
+let current = [];
+
+function route(){
+  const h = (location.hash || '').replace('#','');
+  view = (h === 'all' || FBY[h]) ? h : '';
+  render();
+}
+function go(v){
+  view = (v === 'all' || FBY[v]) ? v : '';
+  try { if (location.hash.replace('#','') !== view) history.replaceState(null, '', view ? '#' + view : location.pathname + location.search); } catch(e) { try { location.hash = view; } catch(_) {} }
+  render(); window.scrollTo({top:0});
+}
+
+function boot(d){
+  FIRMS = d.firms.slice().sort((a,b) => a.n.localeCompare(b.n)); BUILT = d.built;
+  FIRMS.forEach(f => FBY[f.s] = f);
+  DATA = d.rows;
+  DATA.forEach((r, i) => {
+    r.i = i; r.ts = r.ts || []; r.sub = r.sub || ''; r.eli5 = r.eli5 || ''; r.hq = r.hq || ''; r.emp = r.emp || ''; r.bm = r.bm || '';
+    r.stg = r.stg || 'Unknown'; r.d = r.d || ''; r.hay = [r.n, r.d, r.stg, r.ind, r.sub, r.bm, r.eli5, r.ts.join(' '), r.why, r.fn, r.note, r.hq, r.reg, r.cs, r.st, r.f.map(s => FBY[s].n + ' ' + FBY[s].sh).join(' ')].join(' \u0001 ').toLowerCase();
+    r.nl = r.n.toLowerCase(); r.size = SIZE_ORDER.indexOf(r.emp);
+  });
+  $('#jump').innerHTML = '<option value="">Jump to a firm…</option>' + FIRMS.map(f => `<option value="${f.s}">${esc(f.n)} (${f.ct})</option>`).join('');
+  window.addEventListener('hashchange', route);
+  route();
+}
+
+/* ---------- HOME ---------- */
+function renderHome(){
+  const multi = DATA.filter(r => r.f.length > 1).length;
+  $('#app').innerHTML = `
+  <div class="wrap">
+    <section class="hero">
+      <h1>Find the right company across ${FIRMS.length} VC portfolios</h1>
+      <p class="lede">${DATA.length.toLocaleString()} venture-backed companies in one place. See what each one does in plain words, where it hires from, and the roles it hires most.</p>
+      <form class="bigsearch" id="homeform">
+        <div class="search">${IC.search}<input id="homeq" type="search" autocomplete="off" placeholder="Search a company, skill, role, city, or former employer" aria-label="Search every portfolio"></div>
+        <button class="btn primary big" type="submit">Search every portfolio</button>
+      </form>
+      <div class="tries"><span>Try</span>
+        ${['Stripe fintech','ex-Google AI','cybersecurity Israel','robotics','healthcare New York'].map(t => `<button type="button" class="chip" data-try="${esc(t)}">${esc(t)}</button>`).join('')}
+      </div>
+    </section>
+    <h2 class="h2">Browse by firm</h2>
+    <p class="h2sub">Each firm has its own finder. ${multi.toLocaleString()} companies are backed by more than one of these firms.</p>
+    <div class="firms">
+      <button type="button" class="firm all" data-go="all">
+        <span class="top"><span class="fn">All portfolios</span><span class="ct">${DATA.length.toLocaleString()}</span></span>
+        <span class="lab">Search everything at once and choose which VCs to include</span>
+      </button>
+      ${FIRMS.map(f => `<button type="button" class="firm" data-go="${f.s}">
+        <span class="top"><span class="fn">${esc(f.n)}</span><span class="ct">${f.ct.toLocaleString()}</span></span>
+        <span class="lab"><span class="badge c-Complete">Site + Crunchbase</span></span>
+      </button>`).join('')}
+    </div>
+    <p class="foot">Each firm's list combines its own portfolio page with Crunchbase's record of its investments, exported on ${esc(BUILT)}. Funding stage, team size, headquarters, status and LinkedIn links come from Crunchbase. The plain-words descriptions, hiring sources and roles are researched estimates, not a LinkedIn export.</p>
+  </div>`;
+  $('#homeform').addEventListener('submit', e => { e.preventDefault(); state = blank(); state.q = $('#homeq').value.trim(); vcSel = new Set(); go('all', true); });
+}
+
+/* ---------- FINDER ---------- */
+function inScope(r){
+  if (view !== 'all') return r.f.includes(view);
+  if (!vcSel.size) return true;
+  if (vcMode === 'every') { for (const s of vcSel) if (!r.f.includes(s)) return false; return true; }
+  return r.f.some(s => vcSel.has(s));
+}
+function terms(){ return state.q.toLowerCase().replace(/\bex-/g,'').split(/\s+/).filter(Boolean); }
+function filtered(){
+  const t = terms();
+  let r = scope.filter(d =>
+    (!state.stg || d.stg === state.stg) && (!state.ind || d.ind === state.ind) && (!state.bm || d.bm === state.bm) && (!state.reg || d.reg === state.reg) &&
+    (!state.st || d.st === state.st) && (!state.emp || d.sg === state.emp) &&
+    (!state.pool || d.ts.includes(state.pool)) && (!state.full || !d.thin) && t.every(w => d.hay.includes(w)));
+  const score = d => { let s = 0; t.forEach(w => { if (d.nl === w) s += 200; else if (d.nl.startsWith(w)) s += 100; else if (d.nl.includes(w)) s += 40; if (d.ts.some(x => x.toLowerCase().includes(w))) s += 8; if (d.ind.toLowerCase().includes(w) || d.sub.toLowerCase().includes(w)) s += 6; }); return s - (d.thin ? 3 : 0); };
+  const az = (a,b) => a.nl.localeCompare(b.nl);
+  if (state.sort === 'az' || (state.sort === 'rel' && !t.length)) r.sort(az);
+  else if (state.sort === 'rel') { r.forEach(d => d._s = score(d)); r.sort((a,b) => b._s - a._s || az(a,b)); }
+  else if (state.sort === 'vcs') r.sort((a,b) => b.f.length - a.f.length || az(a,b));
+  else if (state.sort === 'big') r.sort((a,b) => b.size - a.size || az(a,b));
+  return r;
+}
+function hl(s){
+  s = esc(s); const t = terms().filter(w => w.length > 1); if (!t.length) return s;
+  const re = new RegExp('(' + t.map(w => esc(w).replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|') + ')', 'gi');
+  return s.replace(re, '<mark>$1</mark>');
+}
+function counts(key){ const c = {}; scope.forEach(d => { const v = d[key]; if (v) c[v] = (c[v]||0) + 1; }); return Object.entries(c).sort((a,b) => b[1]-a[1]); }
+function opts(all, list, cur){ return `<option value="">${all}</option>` + list.map(([v,n,label]) => `<option value="${esc(v)}"${v===cur?' selected':''}>${esc(label||v)} (${n})</option>`).join(''); }
+
+function renderFinder(){
+  const f = FBY[view];
+  scope = DATA.filter(inScope);
+  const poolCount = {}; scope.forEach(d => d.ts.forEach(t => poolCount[t] = (poolCount[t]||0)+1));
+  const topPools = Object.entries(poolCount).sort((a,b)=>b[1]-a[1]).slice(0,28);
+  if (state.pool && !poolCount[state.pool]) state.pool = '';
+    const head = view === 'all'
+    ? `<h2>All portfolios</h2><span class="sub">${DATA.length.toLocaleString()} companies across ${FIRMS.length} firms</span>`
+    : `<h2>${esc(f.n)}</h2><span class="sub">${f.ct.toLocaleString()} companies · <span class="badge c-Complete">Site + Crunchbase</span> ${esc(f.note)} <a href="${esc(f.u)}" target="_blank" rel="noopener">Firm's portfolio page</a></span>`;
+  const vcPanel = view !== 'all' ? '' : `
+    <details class="vcpanel" id="vcpanel" ${vcSel.size || window.__vcOpen ? 'open' : ''}>
+      <summary>Choose VCs <span class="sum" id="vcsum"></span></summary>
+      <div class="vcs">
+        <button type="button" class="btn" id="vc-all">All firms</button>
+        <span class="seg" role="group" aria-label="Match mode">
+          <button type="button" data-mode="any" class="${vcMode==='any'?'on':''}">Backed by any selected</button>
+          <button type="button" data-mode="every" class="${vcMode==='every'?'on':''}">Backed by all selected</button>
+        </span>
+      </div>
+      <div class="vcs">${FIRMS.map(x => `<button type="button" class="chip${vcSel.has(x.s)?' on':''}" data-vc="${x.s}">${esc(x.sh)}<span class="n">${x.ct}</span></button>`).join('')}</div>
+    </details>`;
+  $('#app').innerHTML = `
+  <div class="bar" id="bar"><div class="wrap">
+    <div class="fhead">${head}</div>
+    <div class="search">${IC.search}<input id="q" type="search" autocomplete="off" value="${esc(state.q)}" placeholder="Search a company, skill, role, city, or former employer (try &quot;ex-Google fintech&quot;)" aria-label="Search companies"></div>
+    ${vcPanel}
+    <div class="filters">
+      <label class="sel"><select id="f-stg" aria-label="Funding stage">${opts('Any stage',STG_ORDER.map(v => [v, scope.filter(d=>d.stg===v).length, STG_LABEL[v]||v]).filter(x=>x[1]),state.stg)}</select></label>
+      <label class="sel"><select id="f-ind" aria-label="Industry">${opts('All industries',counts('ind'),state.ind)}</select></label>
+      <label class="sel"><select id="f-bm" aria-label="B2B or B2C">${opts('B2B and B2C',counts('bm').map(([v,n]) => [v,n,BM_LABEL[v]||v]),state.bm)}</select></label>
+      <label class="sel"><select id="f-reg" aria-label="Region">${opts('All regions',counts('reg'),state.reg)}</select></label>
+            <label class="sel"><select id="f-emp" aria-label="Team size">${opts('Any team size',SIZE_GROUPS.map(k => [k, scope.filter(d=>d.sg===k).length]),state.emp)}</select></label>
+      <label class="sel"><select id="f-sort" aria-label="Sort">
+        <option value="rel">Sort: best match</option><option value="az">Sort: A–Z</option><option value="vcs">Sort: backed by most firms</option><option value="big">Sort: largest team</option></select></label>
+      <label class="check" title="Hide companies we could not find enough public information on"><input type="checkbox" id="f-full" ${state.full?'checked':''}> Detailed profiles only</label>
+      <button class="ghost" id="reset" type="button">Clear all</button>
+    </div>
+    <div class="pools" id="pools" aria-label="Filter by where companies hire from"><span class="lbl">Hires from</span>
+      ${topPools.map(([t,n]) => `<button type="button" class="chip${state.pool===t?' on':''}" data-pool="${esc(t)}">${esc(t)}<span class="n">${n}</span></button>`).join('')}
+    </div>
+  </div></div>
+  <div class="wrap">
+    <div class="meta">
+      <div class="count" id="count"></div>
+      <button class="btn" id="copy" type="button" title="Copies the filtered list so you can paste it into Google Sheets or Excel">${IC.copy} Copy these results</button>
+    </div>
+    <main class="grid"><div class="list" id="list"></div><aside class="detail closed" id="detail" aria-live="polite"></aside></main>
+  </div>`;
+  $('#f-sort').value = state.sort;
+  ['stg','ind','bm','reg','emp'].forEach(k => $('#f-'+k).classList.toggle('on', !!state[k]));
+  let tmr;
+  $('#q').addEventListener('input', e => { clearTimeout(tmr); tmr = setTimeout(() => { state.q = e.target.value.trim(); state.shown = 40; state.sel = null; renderList(); }, 130); });
+  ['stg','ind','bm','reg','emp'].forEach(k => $('#f-'+k).addEventListener('change', e => { state[k] = e.target.value; e.target.classList.toggle('on', !!state[k]); state.shown = 40; state.sel = null; renderList(); }));
+  $('#f-sort').addEventListener('change', e => { state.sort = e.target.value; renderList(); });
+  $('#f-full').addEventListener('change', e => { state.full = e.target.checked; state.shown = 40; state.sel = null; renderList(); });
+  const vp = $('#vcpanel'); if (vp) vp.addEventListener('toggle', () => { window.__vcOpen = vp.open; setBarH(); });
+  setBarH(); renderList();
+}
+function renderList(){
+  current = filtered();
+  const anyFilter = state.q || state.stg || state.ind || state.bm || state.reg || state.st || state.emp || state.pool || state.full;
+  const thin = scope.filter(d => d.thin).length;
+  $('#count').innerHTML = (anyFilter ? `<b>${current.length.toLocaleString()}</b> of ${scope.length.toLocaleString()} companies match` : `Showing all <b>${scope.length.toLocaleString()}</b> companies`) + (thin && !state.full ? ` · ${thin.toLocaleString()} have limited info` : '');
+  const vs = $('#vcsum'); if (vs) vs.textContent = vcSel.size ? `${vcSel.size} selected · ${scope.length.toLocaleString()} companies` : `All ${FIRMS.length} firms`;
+  document.querySelectorAll('.chip[data-pool]').forEach(c => c.classList.toggle('on', c.dataset.pool === state.pool));
+  const list = $('#list');
+  if (!current.length){
+    list.innerHTML = `<div class="empty">No companies match. Try fewer words, or <button class="btn" type="button" id="reset2">clear all filters</button></div>`;
+    $('#detail').innerHTML = ''; return;
+  }
+  const showInv = view === 'all';
+  list.innerHTML = current.slice(0, state.shown).map(d => `
+    <button type="button" class="row${state.sel===d.i?' sel-on':''}" data-i="${d.i}">
+      <span class="nm">${hl(d.n)}</span>
+      <span class="right">${d.bm ? `<span class="tag">${esc(d.bm)}</span>` : ''}<span class="pill ${stgClass(d.stg)}">${d.stg === 'Unknown' ? 'Other round' : esc(d.stg)}</span></span>
+      <span class="line2"><span>${hl(d.ind)}${d.sub ? ' · ' + hl(d.sub) : ''}</span>${d.hq ? `<span>${hl(d.hq)}</span>` : ''}${d.emp ? `<span>${esc(d.emp)} people</span>` : ''}</span>
+      <span class="eli${d.eli5 || d.d ? '' : ' none'}">${d.eli5 ? hl(d.eli5) : d.d ? hl(d.d) : 'Not enough public information to describe this company yet.'}</span>
+      ${showInv || d.f.length > 1 ? `<span class="inv">${d.f.map(s => `<span class="vc">${esc(FBY[s].sh)}</span>`).join('')}</span>` : ''}
+    </button>`).join('') +
+    (current.length > state.shown ? `<button type="button" class="btn more" id="more">Show ${Math.min(60, current.length - state.shown)} more of ${(current.length - state.shown).toLocaleString()} remaining</button>` : '');
+  if (state.sel === null || !current.some(d => d.i === state.sel)) { if (window.innerWidth > 900) showDetail(current[0].i, false); }
+}
+function showDetail(i, openSheet = true){
+  state.sel = i; const d = DATA[i];
+  document.querySelectorAll('.row').forEach(r => r.classList.toggle('sel-on', +r.dataset.i === i));
+  const det = $('#detail');
+  const find = 'https://www.linkedin.com/search/results/companies/?keywords=' + encodeURIComponent(d.n);
+  const li = d.li ? `<a class="btn primary" href="${esc(d.li)}" target="_blank" rel="noopener">${IC.li} LinkedIn${d.liv ? '' : ' (check link)'}</a>
+      <button class="btn" type="button" data-copy="${esc(d.li)}">Copy LinkedIn URL</button>` : `<a class="btn primary" href="${esc(find)}" target="_blank" rel="noopener">${IC.li} Find on LinkedIn</a>`;
+  const backers = d.f.map(s => { const p = d.pf && d.pf[s]; return `<button type="button" class="chip" data-go="${s}" title="Open ${esc(FBY[s].n)}'s portfolio">${esc(FBY[s].n)}</button>` + (p ? `<a class="tag" href="${esc(p)}" target="_blank" rel="noopener" title="${esc(FBY[s].sh)}'s page on this company">profile ↗</a>` : ''); }).join('');
+  det.innerHTML = `
+    <div class="dhead">
+      <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start">
+        <h3>${esc(d.n)}</h3>
+        <button class="btn close" type="button" id="close" aria-label="Back to results">Back</button>
+      </div>
+      <div class="dsub"><span>${esc(d.ind)}${d.sub ? ' · ' + esc(d.sub) : ''}</span>${d.bm ? `<span>${esc(BM_LABEL[d.bm])}</span>` : ''}</div>
+      <div class="dact">${li}${d.web ? `<a class="btn" href="${esc(d.web)}" target="_blank" rel="noopener">Website</a>` : ''}${d.cbu ? `<a class="btn" href="https://www.crunchbase.com/organization/${esc(d.cbu)}" target="_blank" rel="noopener">Crunchbase</a>` : ''}</div>
+    </div>
+    ${d.eli5 ? `<p class="eli5"><span class="k">In plain words</span>${esc(d.eli5)}</p>` : d.d ? `<p class="eli5"><span class="k">What they do</span>${esc(d.d)}</p>` : `<p class="thinbox">We could not find enough public information to describe this company. It may be very new, renamed, or no longer operating. Use the LinkedIn search above to check.</p>`}
+    <div class="dbody">
+      <div class="sec"><h4>Backed by</h4><div class="srcs" style="align-items:center">${backers}</div></div>
+      ${d.ts.length ? `<div class="sec"><h4>Where they hire from</h4>
+        <div class="srcs">${d.ts.map(t => `<button type="button" class="chip${state.pool===t?' on':''}" data-pool="${esc(t)}" title="Show every company here that hires from ${esc(t)}">${esc(t)}</button>`).join('')}</div>
+        <p>${esc(d.why || '')}</p></div>` : ''}
+      ${d.fn ? `<div class="sec"><h4>Roles they hire most</h4><p>${esc(d.fn)}</p></div>` : ''}
+      ${d.note && !d.thin ? `<div class="sec"><h4>Recruiter notes</h4><p>${esc(d.note)}</p></div>` : ''}
+      <dl class="facts">
+        <div><dt>Current stage</dt><dd><span class="pill ${stgClass(d.stg)}">${d.stg === 'Unknown' ? 'Other round' : esc(d.stg)}</span>${d.se ? ' <span style="font-weight:400;color:var(--muted)">estimated</span>' : ''}</dd></div>
+        ${d.lr ? `<div><dt>Last round</dt><dd>${esc(d.lr)}</dd></div>` : ''}
+        ${d.tf ? `<div><dt>Total raised</dt><dd>${esc(d.tf)}</dd></div>` : ''}
+        ${d.cs && d.cs !== 'Unknown' ? `<div><dt>Details</dt><dd>${esc(d.cs)}</dd></div>` : ''}
+        <div><dt>Headquarters</dt><dd>${esc(d.hq || '—')}</dd></div>
+        <div><dt>Team size</dt><dd>${esc(d.emp || '—')}</dd></div>
+        ${d.fd ? `<div><dt>Founded</dt><dd>${esc(d.fd)}</dd></div>` : ''}
+        ${d.ly ? `<div><dt>Lightspeed invested</dt><dd>${esc(d.ly)}${d.lst ? ' · ' + esc(d.lst) : ''}</dd></div>` : ''}
+        <div><dt>Write-up confidence</dt><dd>${esc(d.conf || 'Low')}</dd></div>
+      </dl>
+      <p class="warn">${d.cbu ? 'Stage, last round, team size, headquarters, status and LinkedIn are from Crunchbase, exported ' + esc(BUILT) + '.' : 'This company is on the firm\'s own list but was not found in Crunchbase, so its stage, size and status are estimates.'} Where they hire from and the roles are researched estimates, not a LinkedIn export.${d.se ? ' The stage is estimated because Crunchbase shows an unlabelled round.' : ''}${d.li && !d.liv ? ' The LinkedIn link was not confirmed, so check it lands on the right company.' : ''}</p>
+    </div>`;
+  det.scrollTop = 0;
+  if (window.innerWidth > 900) det.classList.remove('closed');
+  else if (openSheet) { det.classList.remove('closed'); document.body.style.overflow = 'hidden'; }
+}
+function closeSheet(){ if (window.innerWidth <= 900) { const d = $('#detail'); if (d) d.classList.add('closed'); } document.body.style.overflow = ''; }
+function setBarH(){ const b = $('#bar'); if (!b) return; const vp = $('#vcpanel'); const tall = !!(vp && vp.open); b.classList.toggle('tall', tall); document.documentElement.style.setProperty('--barh', (tall || window.innerWidth <= 900 ? 12 : b.offsetHeight + 12) + 'px'); }
+function toast(msg){ const t = document.createElement('div'); t.className='toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 2400); }
+async function copyText(text, msg){
+  try { await navigator.clipboard.writeText(text); toast(msg); }
+  catch(e){ const c = $('#clip'); c.value = text; c.select(); try { document.execCommand('copy'); toast(msg); } catch(_) { toast('Copy was blocked. Select the text and copy it manually.'); } }
+}
+function render(){
+  document.body.style.overflow = '';
+  $('#nav-home').classList.toggle('on', view === '');
+  $('#nav-all').classList.toggle('on', view === 'all');
+  $('#jump').value = FBY[view] ? view : ''; $('#jump').classList.toggle('on', !!FBY[view]);
+  document.title = FBY[view] ? FBY[view].sh + ' · VC Portfolio Finder' : 'VC Portfolio Finder';
+  if (view === '') renderHome(); else renderFinder();
+}
+
+/* ---------- events ---------- */
+document.addEventListener('click', e => {
+  const g = e.target.closest('[data-go]'); if (g) { closeSheet(); state = blank(); if (g.dataset.go === 'all') { vcSel = new Set(); vcMode = 'any'; } go(g.dataset.go, true); return; }
+  const tr = e.target.closest('[data-try]'); if (tr) { state = blank(); state.q = tr.dataset.try; vcSel = new Set(); go('all', true); return; }
+  const row = e.target.closest('.row'); if (row) { showDetail(+row.dataset.i); return; }
+  const vc = e.target.closest('[data-vc]'); if (vc) { const s = vc.dataset.vc; vcSel.has(s) ? vcSel.delete(s) : vcSel.add(s); window.__vcOpen = true; state.shown = 40; state.sel = null; renderFinder(); return; }
+  const md = e.target.closest('[data-mode]'); if (md) { vcMode = md.dataset.mode; window.__vcOpen = true; state.sel = null; renderFinder(); return; }
+  if (e.target.closest('#vc-all')) { vcSel = new Set(); vcMode = 'any'; window.__vcOpen = true; state.sel = null; renderFinder(); return; }
+  const pool = e.target.closest('[data-pool]'); if (pool) { state.pool = state.pool === pool.dataset.pool ? '' : pool.dataset.pool; state.shown = 40; state.sel = null; closeSheet(); renderList(); window.scrollTo({top:0}); return; }
+  if (e.target.closest('#more')) { state.shown += 60; renderList(); return; }
+  if (e.target.closest('#close')) { closeSheet(); return; }
+  if (e.target.closest('#reset') || e.target.closest('#reset2')) { state = blank(); renderFinder(); return; }
+  const cp = e.target.closest('[data-copy]'); if (cp) { copyText(cp.dataset.copy, 'LinkedIn URL copied'); return; }
+  if (e.target.closest('#copy')) {
+    const head = ['Company','Backed by','Stage','Industry','B2B/B2C','HQ','Team size','Status','Hires from','Key roles','LinkedIn','Website','What they do'];
+    const clean = s => String(s ?? '').replace(/[\t\n]/g,' ');
+    const rows = current.map(d => [d.n,d.f.map(s=>FBY[s].sh).join(', '),d.stg + (d.se ? ' (est.)' : ''),d.ind,d.bm,d.hq,d.emp,d.cs,d.ts.join(', '),d.fn,d.li,d.web,d.eli5].map(clean).join('\t'));
+    copyText([head.join('\t'), ...rows].join('\n'), `Copied ${current.length.toLocaleString()} companies. Paste into Google Sheets or Excel.`);
+  }
+});
+$('#jump').addEventListener('change', e => { state = blank(); go(e.target.value, true); });
+document.addEventListener('keydown', e => {
+  const q = $('#q') || $('#homeq');
+  if (e.key === '/' && q && document.activeElement !== q && !/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) { e.preventDefault(); q.focus(); }
+  if (e.key === 'Escape') closeSheet();
+});
+window.addEventListener('resize', setBarH);
+
+
+/* ---------- beta: session, passcode gate, feedback ---------- */
+let FB_EMAIL = '';
+const appEl = document.getElementById('app');
+const esc2 = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function fail(msg){ appEl.innerHTML = '<div class="wrap loading">' + esc2(msg) + '</div>'; }
+async function loadData(){
+  appEl.innerHTML = '<div class="wrap loading">Loading portfolios…</div>';
+  const r = await fetch('/api/data', {credentials:'same-origin'});
+  if (r.status === 401) return gate();
+  if (!r.ok) throw new Error('data ' + r.status);
+  boot(await r.json());
+}
+function gate(msg){
+  appEl.innerHTML = '<div class="gate"><form class="mcard" id="gate-form"><h2>Team passcode</h2><p>VC Portfolio Finder is an internal Nxt Level tool. Enter the team passcode to continue.</p><label for="gate-pass">Passcode</label><input type="password" id="gate-pass" autocomplete="current-password" required><div class="err" id="gate-err">' + esc2(msg || '') + '</div><div class="mact"><button class="fbbtn" type="submit">Continue</button></div></form></div>';
+  const f = document.getElementById('gate-form'); document.getElementById('gate-pass').focus();
+  f.addEventListener('submit', async e => {
+    e.preventDefault();
+    const btn = f.querySelector('button'); btn.disabled = true;
+    try {
+      const r = await fetch('/api/login', {method:'POST', headers:{'Content-Type':'application/json'}, credentials:'same-origin', body: JSON.stringify({passcode: document.getElementById('gate-pass').value})});
+      if (r.ok) { await start(); return; }
+      document.getElementById('gate-err').textContent = r.status === 401 ? 'That passcode is not right. Try again.' : 'Sign-in did not work. Try again in a moment.';
+    } catch (_) { document.getElementById('gate-err').textContent = 'Sign-in did not work. Check your connection and try again.'; }
+    btn.disabled = false;
+  });
+}
+async function start(){
+  try {
+    const s = await fetch('/api/session', {credentials:'same-origin'}).then(r => r.json());
+    FB_EMAIL = s.feedbackEmail || '';
+    if (s.locked && !s.authed) return gate();
+    await loadData();
+  } catch (e) { fail('The company data did not load. Reload the page to try again.'); }
+}
+(function feedback(){
+  const m = document.getElementById('fb'), form = document.getElementById('fb-form'), note = document.getElementById('fb-note');
+  let opener = null;
+  const text = () => {
+    const kind = form.querySelector('input[name=kind]:checked').value;
+    const name = document.getElementById('fb-name').value.trim();
+    return { kind, body: document.getElementById('fb-msg').value.trim() + '\n\n—\nType: ' + kind + '\nFrom: ' + (name || 'not given') + '\nPage: ' + (location.hash || 'home') + '\nSent from VC Portfolio Finder (beta)' };
+  };
+  const open = el => { opener = el; note.textContent = FB_EMAIL ? 'This opens a ready-to-send email in your mail app.' : 'This opens a draft in your mail app. You can also copy the message and send it in Slack.'; m.hidden = false; document.getElementById('fb-msg').focus(); };
+  const close = () => { m.hidden = true; if (opener) opener.focus(); };
+  document.addEventListener('click', e => { const b = e.target.closest('[data-fb]'); if (b) open(b); else if (e.target === m) close(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !m.hidden) close(); });
+  document.getElementById('fb-cancel').addEventListener('click', close);
+  document.getElementById('fb-copy').addEventListener('click', async () => {
+    const t = text(); if (!document.getElementById('fb-msg').value.trim()) { note.textContent = 'Write a message first.'; return; }
+    const full = '[VC Portfolio Finder] ' + t.kind + '\n\n' + t.body;
+    try { await navigator.clipboard.writeText(full); } catch (_) { const c = document.getElementById('clip'); c.value = full; c.select(); document.execCommand('copy'); }
+    note.textContent = 'Copied. Paste it into Slack or an email.';
+  });
+  form.addEventListener('submit', e => {
+    e.preventDefault(); const t = text();
+    location.href = 'mailto:' + encodeURIComponent(FB_EMAIL) + '?subject=' + encodeURIComponent('[VC Portfolio Finder] ' + t.kind) + '&body=' + encodeURIComponent(t.body);
+    note.textContent = 'Your mail app should have opened with the message. If it did not, use Copy message.';
+  });
+})();
+start();
+</script>
+
+</body>
+</html>

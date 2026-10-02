@@ -1,0 +1,16 @@
+{
+  "outputDirectory": "public",
+  "functions": {
+    "api/data.js": { "maxDuration": 15, "includeFiles": "data/**" },
+    "api/session.js": { "maxDuration": 10 },
+    "api/login.js": { "maxDuration": 10 }
+  },
+  "headers": [
+    { "source": "/(.*)", "headers": [
+      { "key": "X-Content-Type-Options", "value": "nosniff" },
+      { "key": "Referrer-Policy", "value": "same-origin" },
+      { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
+      { "key": "X-Robots-Tag", "value": "noindex, nofollow" }
+    ] }
+  ]
+}
